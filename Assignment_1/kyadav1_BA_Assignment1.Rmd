@@ -21,6 +21,7 @@ library(caret)
 library(tidyselect)
 library(lubridate)
 library(tidyverse)
+library(Lahman)
 
 str(Online_Retail) #Analyzing the structure of the dataset
 nrow(Online_Retail) #Determining the row count of the dataset
@@ -266,17 +267,17 @@ count(mis_cust_cntry)
 
 ```{r}
 
-
 #Creating subset with only required columns
 
-Online_Retail_2<-subset(Online_Retail[,c(1,5,7,10)])
+Online_Retail_2<-subset(Online_Retail[,c(1,4,5,7,10)])
 Online_Retail_2 <- na.omit(Online_Retail_2) 
 
- #Aggregating the data based on Customer ID and determining the distinct Invoice date for each customer id's (to reduce the calculation)
+ #Aggregating the data based on Customer ID and determining the distinct InvoiceNo with the Invoice dates for all non-canceled transactions 
 
 InvoiceDt_byCustomerID <- Online_Retail_2 %>% 
+                         filter(Quantity>1) %>%
                          group_by(CustomerID) %>%
-                         distinct(New_Invoice_Date)%>%
+                         distinct(InvoiceNo,.keep_all = TRUE)%>%
                         arrange(CustomerID)
 
 #Determining the difference of Invoice Dates
@@ -284,7 +285,6 @@ InvoiceDt_byCustomerID <- Online_Retail_2 %>%
  
 
 # Changing the type 
-Difference_InvoiceDt<-as.numeric(Difference_InvoiceDt)
 Difference_InvoiceDt<-as.data.frame((Difference_InvoiceDt))
 
 Difference_InvoiceDt$Dif_InvoiceDT<-Difference_InvoiceDt
@@ -292,17 +292,21 @@ Difference_InvoiceDt$Dif_InvoiceDT<-Difference_InvoiceDt
 #Merging the Invoice date difference  with  the data frame using cbind
  InvoiceDt_byCustomerID<-data.frame(cbind(InvoiceDt_byCustomerID,Difference_InvoiceDt$Dif_InvoiceDT))
 
-##Note: After the merging the difference of the invoice dates and customer id's, we can see that since we have not done groupby using customer id's for it ,the first row in each customer id category has some values therefore:-
+
  
-# Updating the first record for  difference in dates each customer as 0
+ ## To determine the consumer's come back, we don't need the customer's with no recurring transactions.Therefore we should remove them in order to get the right result.
+ 
+# Updating the first record of difference in dates for  each customer as NA , as it was difference of last transaction  of one customer id with first transaction date of another.Also, this will help to remove the records where customer didn't come for the second purchase.
+ 
  InvoiceDt_byCustomerID <- InvoiceDt_byCustomerID %>%
                           group_by(CustomerID) %>%
-                          mutate(X.Difference_InvoiceDt. = replace ( X.Difference_InvoiceDt. , row_number() == 1, 0))
+                          mutate(X.Difference_InvoiceDt. = replace ( X.Difference_InvoiceDt. , row_number(CustomerID) == 1, NA))
 
- 
-  #Output
-mean(InvoiceDt_byCustomerID$X.Difference_InvoiceDt.)
+#Removing the NA values 
+InvoiceDt_byCustomerID<- na.omit(InvoiceDt_byCustomerID)
 
+ #Output
+ mean(InvoiceDt_byCustomerID$X.Difference_InvoiceDt.)
 ```
 
     

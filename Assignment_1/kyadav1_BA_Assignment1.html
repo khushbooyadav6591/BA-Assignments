@@ -404,11 +404,11 @@ library(lubridate)</code></pre>
 ## 
 ##     date, intersect, setdiff, union</code></pre>
 <pre class="r"><code>library(tidyverse)</code></pre>
-<pre><code>## ── Attaching packages ────────────────────────────────────────────────────────────────────────────────────────────────────────── tidyverse 1.3.0 ──</code></pre>
+<pre><code>## ── Attaching packages ───────────────────────────────────────────────────────────────────────────────────────── tidyverse 1.3.0 ──</code></pre>
 <pre><code>## ✓ tibble  3.0.3     ✓ purrr   0.3.4
 ## ✓ tidyr   1.1.2     ✓ stringr 1.4.0
 ## ✓ readr   1.3.1     ✓ forcats 0.5.0</code></pre>
-<pre><code>## ── Conflicts ───────────────────────────────────────────────────────────────────────────────────────────────────────────── tidyverse_conflicts() ──
+<pre><code>## ── Conflicts ──────────────────────────────────────────────────────────────────────────────────────────── tidyverse_conflicts() ──
 ## x lubridate::as.difftime() masks base::as.difftime()
 ## x lubridate::date()        masks base::date()
 ## x dplyr::filter()          masks stats::filter()
@@ -417,7 +417,9 @@ library(lubridate)</code></pre>
 ## x purrr::lift()            masks caret::lift()
 ## x lubridate::setdiff()     masks base::setdiff()
 ## x lubridate::union()       masks base::union()</code></pre>
-<pre class="r"><code>str(Online_Retail) #Analyzing the structure of the dataset</code></pre>
+<pre class="r"><code>library(Lahman)
+
+str(Online_Retail) #Analyzing the structure of the dataset</code></pre>
 <pre><code>## &#39;data.frame&#39;:    541909 obs. of  8 variables:
 ##  $ InvoiceNo  : chr  &quot;536365&quot; &quot;536365&quot; &quot;536365&quot; &quot;536365&quot; ...
 ##  $ StockCode  : chr  &quot;85123A&quot; &quot;71053&quot; &quot;84406B&quot; &quot;84029G&quot; ...
@@ -840,14 +842,15 @@ count(mis_cust_cntry)</code></pre>
 <h2>9. On average, how often the costumers comeback to the website for their next shopping? (i.e. what is the average number of days between consecutive shopping) (Optional/Golden question: 18 additional marks!) Hint: 1. A close approximation is also acceptable and you may find diff() function useful.</h2>
 <pre class="r"><code>#Creating subset with only required columns
 
-Online_Retail_2&lt;-subset(Online_Retail[,c(1,5,7,10)])
+Online_Retail_2&lt;-subset(Online_Retail[,c(1,4,5,7,10)])
 Online_Retail_2 &lt;- na.omit(Online_Retail_2) 
 
- #Aggregating the data based on Customer ID and determining the distinct Invoice date for each customer id&#39;s (to reduce the calculation)
+ #Aggregating the data based on Customer ID and determining the distinct InvoiceNo with the Invoice dates for all non-canceled transactions 
 
 InvoiceDt_byCustomerID &lt;- Online_Retail_2 %&gt;% 
+                         filter(Quantity&gt;1) %&gt;%
                          group_by(CustomerID) %&gt;%
-                         distinct(New_Invoice_Date)%&gt;%
+                         distinct(InvoiceNo,.keep_all = TRUE)%&gt;%
                         arrange(CustomerID)
 
 #Determining the difference of Invoice Dates
@@ -855,7 +858,6 @@ InvoiceDt_byCustomerID &lt;- Online_Retail_2 %&gt;%
  
 
 # Changing the type 
-Difference_InvoiceDt&lt;-as.numeric(Difference_InvoiceDt)
 Difference_InvoiceDt&lt;-as.data.frame((Difference_InvoiceDt))
 
 Difference_InvoiceDt$Dif_InvoiceDT&lt;-Difference_InvoiceDt
@@ -863,17 +865,22 @@ Difference_InvoiceDt$Dif_InvoiceDT&lt;-Difference_InvoiceDt
 #Merging the Invoice date difference  with  the data frame using cbind
  InvoiceDt_byCustomerID&lt;-data.frame(cbind(InvoiceDt_byCustomerID,Difference_InvoiceDt$Dif_InvoiceDT))
 
-##Note: After the merging the difference of the invoice dates and customer id&#39;s, we can see that since we have not done groupby using customer id&#39;s for it ,the first row in each customer id category has some values therefore:-
- 
-# Updating the first record for  difference in dates each customer as 0
- InvoiceDt_byCustomerID &lt;- InvoiceDt_byCustomerID %&gt;%
-                          group_by(CustomerID) %&gt;%
-                          mutate(X.Difference_InvoiceDt. = replace ( X.Difference_InvoiceDt. , row_number() == 1, 0))
 
  
-  #Output
-mean(InvoiceDt_byCustomerID$X.Difference_InvoiceDt.)</code></pre>
-<pre><code>## [1] 30.29835</code></pre>
+ ## To determine the consumer&#39;s come back, we don&#39;t need the customer&#39;s with no recurring transactions.Therefore we should remove them in order to get the right result.
+ 
+# Updating the first record of difference in dates for  each customer as NA , as it was difference of last transaction  of one customer id with first transaction date of another.Also, this will help to remove the records where customer didn&#39;t come for the second purchase.
+ 
+ InvoiceDt_byCustomerID &lt;- InvoiceDt_byCustomerID %&gt;%
+                          group_by(CustomerID) %&gt;%
+                          mutate(X.Difference_InvoiceDt. = replace ( X.Difference_InvoiceDt. , row_number(CustomerID) == 1, NA))
+
+#Removing the NA values 
+InvoiceDt_byCustomerID&lt;- na.omit(InvoiceDt_byCustomerID)
+
+ #Output
+ mean(InvoiceDt_byCustomerID$X.Difference_InvoiceDt.)</code></pre>
+<pre><code>## Time difference of 40.44346 days</code></pre>
 </div>
 <div id="in-the-retail-sector-it-is-very-important-to-understand-the-return-rate-of-the-goods-purchased-by-customers.-in-this-example-we-can-define-this-quantity-simply-as-the-ratio-of-the-number-of-transactions-cancelled-regardless-of-the-transaction-value-over-the-total-number-of-transactions.-with-this-definition-what-is-the-return-rate-for-the-french-customers-10-marks.-consider-the-cancelled-transactions-as-those-where-the-quantity-variable-has-a-negative-value." class="section level2">
 <h2>10. In the retail sector, it is very important to understand the return rate of the goods purchased by customers. In this example, we can define this quantity, simply, as the ratio of the number of transactions cancelled (regardless of the transaction value) over the total number of transactions. With this definition, what is the return rate for the French customers? (10 marks). Consider the cancelled transactions as those where the ‘Quantity’ variable has a negative value.</h2>
